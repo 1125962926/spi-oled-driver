@@ -2,7 +2,7 @@
  * @Author: Li RF
  * @Date: 2025-01-14 19:03:20
  * @LastEditors: Li RF
- * @LastEditTime: 2025-01-16 19:39:11
+ * @LastEditTime: 2025-01-22 14:51:47
  * @Description: 
  * Email: 1125962926@qq.com
  * Copyright (c) 2025 Li RF, All Rights Reserved.
@@ -22,8 +22,8 @@
 	x坐标：0~127
     y坐标：0~63 */
 #define FRAME_WIDTH 128
-#define FRAME_HIGH 64
-#define FRAME_BUFFER_SIZE (FRAME_WIDTH * FRAME_HIGH / 8)
+#define FRAME_HEIGHT 64
+#define FRAME_BUFFER_SIZE (FRAME_WIDTH * FRAME_HEIGHT / 8)
 
 /* gpio 申请标志对应 BIT */
 enum {
