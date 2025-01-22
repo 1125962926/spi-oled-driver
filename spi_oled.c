@@ -2,7 +2,7 @@
  * @Author: Li RF
  * @Date: 2025-01-12 20:35:44
  * @LastEditors: Li RF
- * @LastEditTime: 2025-01-17 13:53:34
+ * @LastEditTime: 2025-01-22 10:31:11
  * @Description: 
  * Email: 1125962926@qq.com
  * Copyright (c) 2025 Li RF, All Rights Reserved.
@@ -91,19 +91,19 @@ static void oled_write_byte(uint8_t data, uint8_t cmd)
  */
 static bool oled_gpio_check(void) {
     if (!test_bit(SCL_BIT, &spi_oled_dev.gpio_request_flag)) {
-        printk(KERN_ERR "SCL GPIO not set\n");
+        printk(KERN_ERR "%s: SCL GPIO not set\n", SPI_OLED_NAME);
         return false;
     }
     if (!test_bit(MOSI_BIT, &spi_oled_dev.gpio_request_flag)) {
-        printk(KERN_ERR "MOSI GPIO not set\n");
+        printk(KERN_ERR "%s: MOSI GPIO not set\n", SPI_OLED_NAME);
         return false;
     }
     if (!test_bit(RES_BIT, &spi_oled_dev.gpio_request_flag)) {
-        printk(KERN_ERR "RES GPIO not set\n");
+        printk(KERN_ERR "%s: RES GPIO not set\n", SPI_OLED_NAME);
         return false;
     }
     if (!test_bit(DC_BIT, &spi_oled_dev.gpio_request_flag)) {
-        printk(KERN_ERR "DC GPIO not set\n");
+        printk(KERN_ERR "%s: DC GPIO not set\n", SPI_OLED_NAME);
         return false;
     }
     return true;
@@ -156,7 +156,7 @@ static int oled_gpio_init(void) {
     // 申请 scl
     ret = gpio_request(spi_oled_dev.gpio_group.scl_pin, "scl");
     if (ret) {
-        printk(KERN_ERR "Failed to request SCL GPIO\n");
+        printk(KERN_ERR "%s: Failed to request SCL GPIO\n", SPI_OLED_NAME);
         goto err;
     }
     set_bit(SCL_BIT, &spi_oled_dev.gpio_request_flag);
@@ -164,7 +164,7 @@ static int oled_gpio_init(void) {
     // 申请 mosi
     ret = gpio_request(spi_oled_dev.gpio_group.mosi_pin, "mosi");
     if (ret) {
-        printk(KERN_ERR "Failed to request MOSI GPIO\n");
+        printk(KERN_ERR "%s: Failed to request MOSI GPIO\n", SPI_OLED_NAME);
         goto err;
     }
     set_bit(MOSI_BIT, &spi_oled_dev.gpio_request_flag);
@@ -172,7 +172,7 @@ static int oled_gpio_init(void) {
     // 申请 res 
     ret = gpio_request(spi_oled_dev.gpio_group.res_pin, "res");
     if (ret) {
-        printk(KERN_ERR "Failed to request RES GPIO\n");
+        printk(KERN_ERR "%s: Failed to request RES GPIO\n", SPI_OLED_NAME);
         goto err;
     }
     set_bit(RES_BIT, &spi_oled_dev.gpio_request_flag);
@@ -180,7 +180,7 @@ static int oled_gpio_init(void) {
     // 申请 dc 
     ret = gpio_request(spi_oled_dev.gpio_group.dc_pin, "dc");
     if (ret) {
-        printk(KERN_ERR "Failed to request DC GPIO\n");
+        printk(KERN_ERR "%s: Failed to request DC GPIO\n", SPI_OLED_NAME);
         goto err;
     }
     set_bit(DC_BIT, &spi_oled_dev.gpio_request_flag);
@@ -333,7 +333,7 @@ static int oled_open(struct inode *inode, struct file *file) {
         /* 初始化 GPIO */
         int ret = oled_gpio_init();
         if(ret < 0) {
-            printk(KERN_ERR "Failed to allocate GPIO\n");
+            printk(KERN_ERR "%s: Failed to allocate GPIO\n", SPI_OLED_NAME);
             return ret;
         }
     }
@@ -348,7 +348,7 @@ static int oled_open(struct inode *inode, struct file *file) {
  * @return {*}
  */
 static int oled_release(struct inode *inode, struct file *file) {
-    printk(KERN_INFO "Closing spi_oled device, free GPIO!\n");
+    printk(KERN_INFO "%s: Closing spi_oled device, free GPIO!\n", SPI_OLED_NAME);
     /* 取消 GPIO 占用 */
     oled_gpio_free();
     return 0;
@@ -415,20 +415,20 @@ static ssize_t oled_write(struct file *file, const char __user *buf, size_t coun
     ret = oled_gpio_check();
     if (ret == false)
     {
-        printk(KERN_ERR "Please init GPIO first!\n");
+        printk(KERN_ERR "%s: Please init GPIO first!\n", SPI_OLED_NAME);
         return -ENODEV;
     }
 
     // 检查写入大小是否合法
     if (count > buffer_size) {
-        printk(KERN_ERR "ERROR! Write size %zu exceeds buffer size %ld\n", count, buffer_size);
+        printk(KERN_ERR "%s: ERROR! Write size %zu exceeds buffer size %ld\n", SPI_OLED_NAME, count, buffer_size);
         return -EINVAL;
     }
 
     // 将数据从用户空间复制到帧缓冲
     // copy_from_user 的 size 参数传入的是块大小（单次写入的大小）
     if (copy_from_user(spi_oled_dev.frame_buffer + *ppos, buf, count)) {
-        printk(KERN_ERR "Failed to copy data from user space\n");
+        printk(KERN_ERR "%s: Failed to copy data from user space\n", SPI_OLED_NAME);
         return -EFAULT;
     }
 
@@ -438,7 +438,7 @@ static ssize_t oled_write(struct file *file, const char __user *buf, size_t coun
     // 更新文件位置
     *ppos = 0;
 
-    printk(KERN_INFO "Write succeeded: count=%zu, pos=%lld\n", count, *ppos);
+    printk(KERN_INFO "%s: Write succeeded: count=%zu, pos=%lld\n", SPI_OLED_NAME, count, *ppos);
     return count;
 }
 
@@ -458,7 +458,7 @@ static long oled_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
         ret = oled_gpio_check();
         if (ret == false)
         {
-            printk(KERN_ERR "Please init GPIO first!\n");
+            printk(KERN_ERR "%s: Please init GPIO first!\n", SPI_OLED_NAME);
             return -ENODEV;
         }
     }
@@ -473,7 +473,7 @@ static long oled_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
             ret = oled_gpio_check();
             if (ret == true)
             {
-                printk(KERN_INFO "GPIO has been configured. Nothing to do.\n");
+                printk(KERN_INFO "%s: GPIO has been configured. Nothing to do.\n", SPI_OLED_NAME);
                 return 0;
             }
             ret = copy_from_user(&gpio_group_temp, (void __user *)arg, sizeof(struct oled_gpio_stuct));
@@ -486,7 +486,7 @@ static long oled_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
             /* 申请并初始化 GPIO */
             ret = oled_gpio_init();
             if(ret < 0) {
-                printk(KERN_ERR "Failed to allocate GPIO\n");
+                printk(KERN_ERR "%s: Failed to allocate GPIO\n", SPI_OLED_NAME);
                 return ret;
             }
 
@@ -496,31 +496,31 @@ static long oled_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
             /* 初始完成，进行清空 */
             clear_oled();
             
-            printk(KERN_INFO "The OLED init success!\n");
+            printk(KERN_INFO "%s: The OLED init success!\n", SPI_OLED_NAME);
             break;
         }
         /* 开启 OLED */ 
         case IOCTL_OLED_OPEN:
-            // printk(KERN_INFO "OLED turned on\n");
+            // printk(KERN_INFO "%s: OLED turned on\n", SPI_OLED_NAME);
             open_oled();
             break;
         /* 关闭 OLED */ 
         case IOCTL_OLED_CLOSE:
-            // printk(KERN_INFO "OLED turned off\n");
+            // printk(KERN_INFO "%s: OLED turned off\n", SPI_OLED_NAME);
             close_oled();
             break;
         /* 刷新 OLED */ 
         case IOCTL_OLED_REFRESH: 
-            // printk(KERN_INFO "OLED refreshed\n");
+            // printk(KERN_INFO "%s: OLED refreshed\n", SPI_OLED_NAME);
             refresh_oled();
             break;
         /* 清空 OLED */ 
         case IOCTL_OLED_CLEAR: 
-            // printk(KERN_INFO "OLED refreshed\n");
+            // printk(KERN_INFO "%s: OLED refreshed\n", SPI_OLED_NAME);
             clear_oled();
             break;
         default:
-            printk(KERN_ERR "Unknown command!\n");
+            printk(KERN_ERR "%s: Unknown command!\n", SPI_OLED_NAME);
             return -ENOTTY;
     }
 
@@ -538,7 +538,7 @@ static int oled_mmap(struct file *filp, struct vm_area_struct *vma) {
 
     // remap_vmalloc_range 要求 vma 的大小不能超过 vmalloc 分配的内存大小
     if (size > buffer_size) {
-        printk(KERN_INFO "ERROR! Size: %ld is bigger than %ld!\n", size, buffer_size);
+        printk(KERN_INFO "%s: ERROR! Size: %ld is bigger than %ld!\n", SPI_OLED_NAME, size, buffer_size);
         return -EINVAL;
     }
 
@@ -553,7 +553,7 @@ static int oled_mmap(struct file *filp, struct vm_area_struct *vma) {
 
     // 将帧缓冲区映射到用户空间
     if (remap_vmalloc_range(vma, spi_oled_dev.frame_buffer, 0)) {
-        printk(KERN_INFO "remap_vmalloc_range error!\n");
+        printk(KERN_INFO "%s: remap_vmalloc_range error!\n", SPI_OLED_NAME);
         return -EAGAIN;
     }
 
@@ -597,10 +597,10 @@ static int __init oled_driver_init(void) {
     buffer_size = num_pages * PAGE_SIZE;
 
     /* 分配帧缓冲区 */
-    printk(KERN_INFO "buffer_size: %zu\n", buffer_size);
+    printk(KERN_INFO "%s: buffer_size: %zu\n", SPI_OLED_NAME, buffer_size);
     spi_oled_dev.frame_buffer = vmalloc_user(buffer_size);
     if (!spi_oled_dev.frame_buffer) {
-        printk(KERN_ERR "Failed to allocate frame buffer\n");
+        printk(KERN_ERR "%s: Failed to allocate frame buffer\n", SPI_OLED_NAME);
         goto free_gpio;
     }
     memset(spi_oled_dev.frame_buffer, 0, buffer_size);
@@ -611,20 +611,20 @@ static int __init oled_driver_init(void) {
         spi_oled_dev.devid = MKDEV(spi_oled_dev.major, 0);
         ret = register_chrdev_region(spi_oled_dev.devid, SPI_OLED_CNT, SPI_OLED_NAME);
         if(ret < 0) {
-            printk(KERN_ERR "cannot register %s char driver [ret=%d]\n", SPI_OLED_NAME, SPI_OLED_CNT);
+            printk(KERN_ERR "%s: Cannot register char driver [ret=%d]\n",SPI_OLED_NAME, SPI_OLED_CNT);
             goto free_buffer;
         }
     }
     else { /* 没有定义设备号 */
         ret = alloc_chrdev_region(&spi_oled_dev.devid, 0, SPI_OLED_CNT, SPI_OLED_NAME); /* 申请设备号 */
         if(ret < 0) {
-            printk(KERN_ERR "%s Couldn't alloc_chrdev_region,ret=%d\r\n", SPI_OLED_NAME, ret);
+            printk(KERN_ERR "%s: Couldn't alloc_chrdev_region,ret=%d\r\n", SPI_OLED_NAME, ret);
             goto free_buffer;
         }
         spi_oled_dev.major = MAJOR(spi_oled_dev.devid); /* 获取分配号的主设备号 */
         spi_oled_dev.minor = MINOR(spi_oled_dev.devid); /* 获取分配号的次设备号 */
     }
-    printk(KERN_INFO "spi_oled_dev major=%d, minor=%d\r\n",spi_oled_dev.major, spi_oled_dev.minor);
+    printk(KERN_INFO "%s: spi_oled_dev major=%d, minor=%d\r\n", SPI_OLED_NAME, spi_oled_dev.major, spi_oled_dev.minor);
 
     /* 2、初始化 cdev */
     spi_oled_dev.cdev.owner = THIS_MODULE;
@@ -647,7 +647,7 @@ static int __init oled_driver_init(void) {
         goto destroy_class;
     }
 
-    printk(KERN_INFO "spi_oled driver is loaded!\n");
+    printk(KERN_INFO "%s: spi_oled driver is loaded!\n", SPI_OLED_NAME);
     return 0;
 
 destroy_class:
@@ -678,7 +678,7 @@ static void __exit oled_driver_exit(void) {
     vfree(spi_oled_dev.frame_buffer);                           /* 释放帧缓冲 */
     oled_gpio_free();                                           /* 释放 GPIO */
 
-    printk(KERN_INFO "spi_oled driver is removed!\n");
+    printk(KERN_INFO "%s: spi_oled driver is removed!\n", SPI_OLED_NAME);
 }
 
 module_init(oled_driver_init);
