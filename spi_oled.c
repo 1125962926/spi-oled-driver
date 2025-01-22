@@ -483,7 +483,7 @@ static long oled_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
                 printk(KERN_INFO "%s: GPIO has been configured. Nothing to do.\n", SPI_OLED_NAME);
                 return 0;
             }
-            printk(KERN_INFO "%s: Tyring to init GPIO!\n", SPI_OLED_NAME);
+            printk(KERN_INFO "%s: Trying to init GPIO!\n", SPI_OLED_NAME);
             ret = copy_from_user(&gpio_group_temp, (void __user *)arg, sizeof(struct oled_gpio_stuct));
             if (ret < 0)
                 return ret;  // 复制失败，返回错误
