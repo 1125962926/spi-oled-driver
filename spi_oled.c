@@ -2,7 +2,7 @@
  * @Author: Li RF
  * @Date: 2025-01-12 20:35:44
  * @LastEditors: Li RF
- * @LastEditTime: 2025-01-22 10:31:11
+ * @LastEditTime: 2025-01-22 15:09:29
  * @Description: 
  * Email: 1125962926@qq.com
  * Copyright (c) 2025 Li RF, All Rights Reserved.
@@ -265,14 +265,21 @@ static void oled_start_init(void) {
 static void refresh_oled(void) {
     uint8_t *page_start;
     // 每一页
-    for (uint8_t i = 0; i < FRAME_HIGH / 8; i++) 
+    for (uint8_t i = 0; i < FRAME_HEIGHT / 8; i++) 
     {
         oled_write_byte(0xb0 + i, OLED_CMD); // 设置页地址（0~7）
         oled_write_byte(0x00, OLED_CMD);     // 设置显示位置—列低地址
         oled_write_byte(0x10, OLED_CMD);     // 设置显示位置—列高地址
 
-        // 计算当前页的起始位置
-        page_start = spi_oled_dev.frame_buffer + i * FRAME_WIDTH;
+        // 计算当前页的起始位置，（0，0）在左上角
+        // page_start = spi_oled_dev.frame_buffer + i * FRAME_WIDTH;
+        // 反转页顺序，如果（0，0）在左下角，则需要先读取最后一页，再读取倒数第二页
+        page_start = spi_oled_dev.frame_buffer + (FRAME_HEIGHT / 8 - 1 - i) * FRAME_WIDTH;
+
+        // 确保不超出 1024 字节的范围
+        if ((i + 1) * FRAME_WIDTH > FRAME_BUFFER_SIZE) {
+            break;
+        }
 
         // 写入当前页的所有字节（从左到右共 128 字节）
         for (uint8_t n = 0; n < FRAME_WIDTH; n++)
@@ -371,7 +378,7 @@ static ssize_t oled_read(struct file *file, char __user *user_buffer, size_t cou
         "Device Information:\n"
         "  Resolution: %d * %d\n"
         "  Buffer size: %ld Byte\n",
-        FRAME_WIDTH, FRAME_HIGH, buffer_size);
+        FRAME_WIDTH, FRAME_HEIGHT, buffer_size);
 
     if (!usage_info) {
         return -ENOMEM;  // 内存分配失败
@@ -476,6 +483,7 @@ static long oled_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
                 printk(KERN_INFO "%s: GPIO has been configured. Nothing to do.\n", SPI_OLED_NAME);
                 return 0;
             }
+            printk(KERN_INFO "%s: Tyring to init GPIO!\n", SPI_OLED_NAME);
             ret = copy_from_user(&gpio_group_temp, (void __user *)arg, sizeof(struct oled_gpio_stuct));
             if (ret < 0)
                 return ret;  // 复制失败，返回错误
@@ -534,12 +542,13 @@ static long oled_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
  * @return {*}
  */
 static int oled_mmap(struct file *filp, struct vm_area_struct *vma) {
-    unsigned long size = vma->vm_end - vma->vm_start;
+    // 这里会返回页对齐后的地址大小
+    unsigned long size = vma->vm_end - vma->vm_start; 
 
-    // remap_vmalloc_range 要求 vma 的大小不能超过 vmalloc 分配的内存大小
-    if (size > buffer_size) {
-        printk(KERN_INFO "%s: ERROR! Size: %ld is bigger than %ld!\n", SPI_OLED_NAME, size, buffer_size);
-        return -EINVAL;
+    // 检查用户空间申请的大小是否合法
+    if (size < FRAME_BUFFER_SIZE) {
+        printk(KERN_INFO "%s: ERROR! Size: %ld is less than %ld!\n", SPI_OLED_NAME, size, buffer_size);
+        return -EINVAL;// 用户空间申请的大小不足
     }
 
     // 设置 vma 的权限
