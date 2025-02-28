@@ -31,8 +31,10 @@ if [ -f "$PID_FILE" ]; then
     exit 1
 fi
 
+sleep 2
+
 # 后台执行脚本
-${script_path}/spi_oled_app -o "$pin_str" &
+${script_path}/spi_oled_app -p 2 -o "$pin_str" &
 
 # 获取后台进程的 PID
 APP_PID=$!
