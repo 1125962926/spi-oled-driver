@@ -2,7 +2,7 @@
  * @Author: Li RF
  * @Date: 2025-01-14 22:13:40
  * @LastEditors: Li RF
- * @LastEditTime: 2025-01-22 10:11:43
+ * @LastEditTime: 2025-02-28 10:34:00
  * @Description: 
  * Email: 1125962926@qq.com
  * Copyright (c) 2025 Li RF, All Rights Reserved.
@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include "../../def_spi_oled.h"
 
 typedef unsigned char uint8_t;

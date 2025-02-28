@@ -3,7 +3,7 @@
  # @Author: Li RF
  # @Date: 2025-01-15 22:11:46
  # @LastEditors: Li RF
- # @LastEditTime: 2025-01-22 13:33:02
+ # @LastEditTime: 2025-01-22 16:49:51
  # @Description: 
  # Email: 1125962926@qq.com
  # Copyright (c) 2025 Li RF, All Rights Reserved.
@@ -11,6 +11,9 @@
 
 # 启用 set -e，任何命令失败时脚本立即退出
 set -e
+
+# 提取调用脚本时的参数，获取路径
+script_path=$(dirname "$0")
 
 # SPI 接口引脚定义
 scl_pin=98
@@ -20,10 +23,16 @@ dc_pin=99
 pin_str="$scl_pin,$mosi_pin,$res_pin,$dc_pin"
 
 # PID 文件路径
-PID_FILE="./spi_oled_app.pid"
+PID_FILE="${script_path}/spi_oled_app.pid"
+
+# 检查 PID 文件是否存在
+if [ -f "$PID_FILE" ]; then
+#    echo "APP is already running. Exiting."
+    exit 1
+fi
 
 # 后台执行脚本
-./spi_oled_app -o "$pin_str" &
+${script_path}/spi_oled_app -o "$pin_str" &
 
 # 获取后台进程的 PID
 APP_PID=$!

@@ -3,14 +3,17 @@
  # @Author: Li RF
  # @Date: 2025-01-22 09:56:16
  # @LastEditors: Li RF
- # @LastEditTime: 2025-01-22 13:44:55
+ # @LastEditTime: 2025-01-22 16:56:32
  # @Description: 
  # Email: 1125962926@qq.com
  # Copyright (c) 2025 Li RF, All Rights Reserved.
 ### 
 
-# 读取 PID 文件
-PID_FILE="./spi_oled_app.pid"
+# 提取调用脚本时的参数，获取路径
+script_path=$(dirname "$0")
+
+# PID 文件路径
+PID_FILE="${script_path}/spi_oled_app.pid"
 
 if [ -f "$PID_FILE" ]; then
     PID=$(cat "$PID_FILE")

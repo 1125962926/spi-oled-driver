@@ -2,7 +2,7 @@
  * @Author: Li RF
  * @Date: 2025-01-14 19:15:24
  * @LastEditors: Li RF
- * @LastEditTime: 2025-01-22 15:45:57
+ * @LastEditTime: 2025-02-28 13:20:36
  * @Description: 
  * Email: 1125962926@qq.com
  * Copyright (c) 2025 Li RF, All Rights Reserved.
@@ -273,15 +273,13 @@ void OLED_ShowString(uint8_t x, uint8_t y, const uint8_t *p, uint8_t size)
 }
 
 /***************************** UI 组件 ******************************/
-char date_str[20];
-char time_str[20];
 /**
  * @Description: 获取当前时间
  * @param {char} *date_t: 日期字符串
  * @param {char} *time_t: 时间字符串
  * @return {*}
  */
-void get_current_time(void) 
+void get_current_time(char *date_str, char *time_str, size_t size1, size_t size2) 
 {
     time_t current_time;
     struct tm* timeinfo;
@@ -296,12 +294,170 @@ void get_current_time(void)
     }
 
 	// 格式化日期
-    strftime(date_str, sizeof(date_str), "%Y-%m-%d", timeinfo);
+    strftime(date_str, size1, "%Y-%m-%d", timeinfo);
     // 格式化时间
-    strftime(time_str, sizeof(time_str), "%H:%M:%S", timeinfo);
+    strftime(time_str, size2, "%H:%M:%S", timeinfo);
 }
 
+/**
+ * @Description: 获取 CPU 占用率
+ * @return {*}
+ */
+int get_cpu_usage(char *cpu_usage, size_t size) {
+    // 使用mpstat命令获取CPU占用率，popen 打开的文件会将命令的输出保留在一个缓冲区中
+    // mpstat 1 1 表示每秒采样一次，共采样一次
+    // /all/：匹配包含 all 的行，$NF 表示最后一列（即 %idle，CPU 空闲率），head -n 1 限制只输出第一行
+    FILE *fp = popen("mpstat 1 1 | awk '/all/ {print 100 - $NF}' | head -n 1", "r");
+    if (fp == NULL) {
+        perror("Failed to run mpstat command");
+        return -1;
+    }
+    // 读取命令输出
+    char temp[size];
+    if (fgets(temp, size, fp) == NULL) {
+        perror("Failed to read CPU usage");
+        pclose(fp);
+        return -1;
+    }
+    pclose(fp);
+    // 添加前缀
+    snprintf(cpu_usage, size, "CPU: %.2f%%", atof(temp));
+    // 查找字符串中的换行符并将其替换为终止符 \0，确保字符串没有多余的换行符
+    cpu_usage[strcspn(cpu_usage, "\n")] = '\0';
+    return 0;
+}
 
+/**
+ * @Description: 获取 CPU 频率
+ * @return {*}
+ */
+int get_cpu_frequency(char *cpu_freq, size_t size) {
+    FILE *file = fopen("/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq", "r");
+    if (file == NULL) {
+        perror("Failed to open CPU frequency file");
+        return -1;
+    }
+    char line[size];
+    if (fgets(line, size, file) == NULL) {
+        perror("Failed to read CPU frequency");
+        fclose(file);
+        return -1;
+    }
+    fclose(file);
+    // 添加前缀
+    snprintf(cpu_freq, size, "CPU: %dMHz", atoi(line) / 1000);
+    return 0;
+}
+
+/**
+ * @Description: 获取 GPU 占用率
+ * @return {*}
+ */
+int get_gpu_usage(char *gpu_usage, size_t size) {
+    FILE *file = fopen("/sys/class/devfreq/fb000000.gpu/load", "r");
+    if (file == NULL) {
+        perror("Failed to open GPU load file");
+        return -1;
+    }
+
+    char line[size];
+    if (fgets(line, size, file) == NULL) {
+        perror("Failed to read GPU load");
+        fclose(file);
+        return -1;
+    }
+    fclose(file);
+    // 提取@前的数字
+    char *at_pos = strchr(line, '@');
+    if (at_pos == NULL) {
+        fprintf(stderr, "Invalid GPU load format\n");
+        return -1;
+    }
+    *at_pos = '\0'; // 截断字符串，保留@前的部分
+    // 添加前缀
+    snprintf(gpu_usage, size, "GPU: %d%%", atoi(line));
+    return 0;
+}
+
+/**
+ * @Description: 获取 NPU 占用率
+ * @return {*}
+ */
+int get_npu_usage(char *npu_usage, size_t size) {
+    FILE *file = fopen("/sys/kernel/debug/rknpu/load", "r");
+    if (file == NULL) {
+        perror("Failed to open NPU load file");
+        return -1;
+    }
+    // 读取文件内容
+    char line[size];
+    if (fgets(line, size, file) == NULL) {
+        perror("Failed to read NPU load file");
+        fclose(file);
+        return -1;
+    }
+    fclose(file);
+    // 添加前缀
+    snprintf(npu_usage, size, "NPU: ");
+    // 使用 strchr 查找 % 并提取数字
+    char *ptr = line;
+    int core_count = 0;
+    while ((ptr = strchr(ptr, '%')) != NULL) {
+        char *num_start = ptr - 1;
+        // 回溯直到找到数字的起始位置
+        while (num_start >= line && isdigit(*(num_start - 1))) {
+            num_start--;
+        }
+        // 提取数字，atoi 会从给定的字符串起始位置开始解析，直到遇到第一个非数字字符为止（%前的所有数字）
+        if (isdigit(*num_start)) {
+            int value = atoi(num_start);
+            if (value >= 0 && value <= 100) {
+                // 将数字追加到结果字符串中
+                char buffer[4]; // 最多三位数字
+                snprintf(buffer, sizeof(buffer), "%d%%", value);
+                strcat(npu_usage, buffer);
+                if (core_count >= 0 && core_count < 2) {
+                    strcat(npu_usage, " "); // 添加空格分隔
+                }
+                core_count++;
+            } else {
+                // 如果数字不在 0-100 范围内，跳过
+                fprintf(stderr, "Invalid NPU load value: %d (must be 0-100)\n", value);
+            }
+        } else {
+            // 如果 num_start 指向的位置不是数字字符，跳过
+            fprintf(stderr, "Invalid NPU load format: expected a number before %%\n");
+        }
+        ptr++; // 继续查找下一个 %
+    }
+    return 0;
+}
+
+/**
+ * @Description: 获取芯片温度
+ * @return {*}
+ */
+int get_temperature(char *temperature, size_t size) {
+    // 使用sensors命令获取温度
+    FILE *fp = popen("sensors | awk '/temp1/ {print $2}' | head -n 1", "r");
+    if (fp == NULL) {
+        perror("Failed to run sensors command");
+        return -1;
+    }
+    // 读取命令输出
+    char line[size];
+    if (fgets(line, size, fp) == NULL) {
+        perror("Failed to read chip temperature");
+        pclose(fp);
+        return -1;
+    }
+    pclose(fp);
+    // 添加前缀
+    snprintf(temperature, size, "Temper: %s", line);
+    // 去掉换行符
+    temperature[strcspn(temperature, "\n")] = '\0';
+    return 0;
+}
 
 /***************************** UI 界面 ******************************/
 
@@ -310,17 +466,60 @@ void get_current_time(void)
  * @return {*}
  */
 void display_style_1(void) {
-
+    char date_str[20];
+    char time_str[20];
     // 获取当前时间
-    get_current_time();
-        
+    get_current_time(date_str, time_str, sizeof(date_str), sizeof(time_str));
     OLED_ShowString(0, 30, (uint8_t *)date_str, FONT_12);
     OLED_ShowString(0, 40, (uint8_t *)time_str, FONT_24);
-
 }
 
+/**
+ * @Description: 硬件占用率
+ * @return {*}
+ */
 void display_style_2(void) {
-    printf("Displaying Style 2: Scrolling Text\n");
+    // 初始化缓冲区
+    char cpu_usage[20] = {0}; // 过滤后的值长度最大为 6 （100.00）
+    char cpu_freq[20] = {0};
+    char gpu_usage[20] = {0}; // 指令返回的字符串长度为 16
+    char npu_usage[50] = {0}; // 指令返回的字符串长度为 45
+    char temperature[20] = {0};
+    int ret;
+
+    // 获取CPU占用率
+    ret = get_cpu_usage(cpu_usage, sizeof(cpu_usage));
+    if (ret != 0) {
+        printf("Failed to get CPU usage\n");
+    }
+    // 获取CPU频率
+    // ret = get_cpu_frequency(cpu_freq, sizeof(cpu_freq));
+    // if (ret != 0) {
+    //     printf("Failed to get CPU frequency\n");
+    // }
+    // 获取GPU占用率
+    ret = get_gpu_usage(gpu_usage, sizeof(gpu_usage));
+    if (ret != 0) {
+        printf("Failed to get GPU usage\n");
+    }
+    // 获取NPU占用率
+    ret = get_npu_usage(npu_usage, sizeof(npu_usage));
+    if (ret != 0) {
+        printf("Failed to get NPU usage\n");
+    }
+    // 获取芯片温度
+    ret = get_temperature(temperature, sizeof(temperature));
+    if (ret != 0) {
+        printf("Failed to get chip temperature\n");
+    }
+
+    // 显示
+    OLED_ShowString(0, 0, (uint8_t *)cpu_usage, FONT_16);
+    // OLED_ShowString(64, 0, (uint8_t *)cpu_freq, FONT_16);
+    OLED_ShowString(0, 16, (uint8_t *)gpu_usage, FONT_16);
+    OLED_ShowString(0, 32, (uint8_t *)npu_usage, FONT_16);
+    OLED_ShowString(0, 48, (uint8_t *)temperature, FONT_16);
+
 }
 
 void display_style_3(void) {
